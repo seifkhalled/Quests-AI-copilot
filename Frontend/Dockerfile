@@ -7,7 +7,7 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 FROM base AS builder
-ENV NEXT_PUBLIC_API_URL=http://localhost:8000
+ENV NEXT_PUBLIC_API_URL=http://localhost:8002
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build
@@ -27,6 +27,6 @@ USER nextjs
 EXPOSE 3000
 
 ENV PORT=3000
-ENV NEXT_PUBLIC_API_URL=http://localhost:8000
+ENV NEXT_PUBLIC_API_URL=http://localhost:8002
 
 CMD ["node", "server.js"]

@@ -31,6 +31,7 @@ export interface Source {
   document_title: string
   chunk_index: number
   snippet: string
+  score?: number
 }
 
 export interface Document {

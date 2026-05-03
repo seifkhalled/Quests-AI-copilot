@@ -83,8 +83,12 @@ async def generate_post_ingestion_insights(document_id: str) -> None:
     required skills, experience level, salary signals,
     location, anything notable.
     """
-    from langchain_openai import ChatOpenAI
-    llm = ChatOpenAI(model="gpt-4o", temperature=0)
+    from langchain_groq import ChatGroq
+    llm = ChatGroq(
+        model="llama-3.3-70b-versatile",
+        temperature=0,
+        api_key=settings.GROQ_AGENT_API_KEY,
+    )
     sb = get_supabase()
 
     # Fetch document
