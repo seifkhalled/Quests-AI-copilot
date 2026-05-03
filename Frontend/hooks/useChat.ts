@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { createConversation, sendMessage, endConversation } from '@/lib/api'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { createConversation, endConversation, sendMessageStream } from '@/lib/api'
 import { getCurrentUser } from '@/lib/auth'
-import type { Message, Conversation, User } from '@/lib/types'
+import type { Message, Conversation, User, Source } from '@/lib/types'
 
 export function useChat() {
   const [user, setUser] = useState<User | null>(null)
@@ -13,6 +13,7 @@ export function useChat() {
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
   const [mounted, setMounted] = useState(false)
+  const streamAbortRef = useRef<(() => void) | null>(null)
 
   useEffect(() => {
     setMounted(true)
@@ -43,29 +44,58 @@ export function useChat() {
       created_at: new Date().toISOString(),
     }
     setMessages(prev => [...prev, optimistic])
+
+    const streamMessage: Message = {
+      id: crypto.randomUUID(),
+      conversation_id: conversation.id,
+      role: 'assistant', content: '',
+      sources: [], confidence: null, reasoning: null,
+      created_at: new Date().toISOString(),
+    }
+    setMessages(prev => [...prev, streamMessage])
+
     try {
-      const res = await sendMessage(conversation.id, user.id, text)
-      const d = res.data
-      const assistant: Message = {
-        id: crypto.randomUUID(),
-        conversation_id: conversation.id,
-        role: 'assistant', content: d.answer,
-        sources: d.sources || [], confidence: d.confidence,
-        reasoning: null, created_at: new Date().toISOString(),
-      }
-      setMessages(prev => [...prev, assistant])
+      let fullContent = ''
+      let sources: Source[] = []
+      let statusMsg = ''
+
+      streamAbortRef.current = sendMessageStream(
+        conversation.id,
+        user.id,
+        text,
+        (chunk, type) => {
+          if (type === 'status') {
+            statusMsg = chunk
+          } else if (type === 'content') {
+            fullContent += chunk
+            setMessages(prev => prev.map(m =>
+              m.id === streamMessage.id ? { ...m, content: fullContent } : m
+            ))
+          } else if (type === 'sources') {
+            try { sources = JSON.parse(chunk) } catch {}
+          } else if (type === 'error') {
+            setError(chunk)
+          }
+        }
+      )
     } catch {
       setError('Failed to send message')
       setMessages(prev => prev.filter(m => m.id !== optimistic.id))
     } finally { setSending(false) }
   }
 
+  function abortStream() {
+    streamAbortRef.current?.()
+    streamAbortRef.current = null
+  }
+
   async function newChat() {
+    abortStream()
     if (conversation && user) {
       await endConversation(conversation.id, user.id).catch(() => {})
     }
     await startConversation()
   }
 
-  return { conversation, messages, loading, sending, error, send, newChat }
+  return { conversation, messages, loading, sending, error, send, newChat, abortStream }
 }

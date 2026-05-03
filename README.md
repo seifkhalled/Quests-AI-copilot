@@ -8,28 +8,27 @@ RAG-based knowledge management system for real estate with Slack integration.
 - **Backend**: FastAPI, Python 3.12
 - **Database**: Supabase (PostgreSQL)
 - **Vector Database**: Qdrant
-- **LLM**: Groq (Llama 3)
-- **Task Queue**: Celery + Redis
+- **LLM**: Groq / OpenRouter
 - **External**: Slack API
 
 ## Prerequisites
 
 - Node.js 18+
-- Python 3.12
-- Supabase account
-- Qdrant account (or local instance)
-- Groq API key
-- Slack app (for Slack integration)
+- Python 3.12+
+- Supabase account (https://supabase.com)
+- Qdrant account (https://qdrant.ai)
+- Groq or OpenRouter API key
 
-## Environment Setup
+## Setup
 
-### 1. Clone and Setup
+### 1. Clone and Install Dependencies
 
 ```bash
 # Backend
 cd Backend
 python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
+.venv\Scripts\activate  # Windows
+# source .venv/bin/activate  # Linux/Mac
 pip install -r requirements.txt
 
 # Frontend
@@ -39,94 +38,121 @@ npm install
 
 ### 2. Environment Variables
 
-Create `.env` files from the examples:
+Copy the example files and fill in your credentials:
 
-**Backend (`Backend/.env`):**
-```env
-# Supabase
-SUPABASE_URL=your_supabase_url
-SUPABASE_KEY=your_supabase_anon_key
-DATABASE_URL=postgresql://...
-
-# Qdrant
-QDRANT_URL=your_qdrant_url
-QDRANT_API_KEY=your_qdrant_key
-
-# Groq
-GROQ_API_KEY=your_groq_api_key
-
-# Redis
-REDIS_URL=redis://localhost:6379/0
-
-# Slack (optional)
-SLACK_APP_TOKEN=xapp-xxx
-SLACK_BOT_TOKEN=xoxb-xxx
+```bash
+# Backend
+cp .env.example .env
 ```
 
-**Frontend (`Frontend/.env.local`):**
-```env
-NEXT_PUBLIC_API_URL=http://localhost:8000
-```
+Edit `Backend/.env` with your credentials:
+
+| Variable | Description | How to get |
+|----------|-------------|------------|
+| `SUPABASE_URL` | Supabase project URL | Supabase Dashboard → Settings → API |
+| `DATABASE_URL` | PostgreSQL connection string | Supabase Dashboard → Settings → Database |
+| `PUBLISHABLE_KEY` | Supabase publishable key | Supabase Dashboard → Settings → API |
+| `SECRET_KEY` | Supabase secret key | Supabase Dashboard → Settings → API |
+| `QDRANT_URL` | Qdrant cluster URL | Qdrant Dashboard → Clusters |
+| `QDRANT_API_KEY` | Qdrant API key | Qdrant Dashboard → API Keys |
+| `GROQ_API_KEY` | Groq API key | https://console.groq.com |
+| `OPEN_ROUTER_API_KEY` | OpenRouter API key | https://openrouter.ai |
 
 ### 3. Database Setup
 
-Run the Supabase setup script:
+The database tables are created automatically on first run. Alternatively:
+
 ```bash
 cd Backend/supabase
 python setup_db.py
 ```
 
+### 4. Slack Integration (Optional)
+
+To enable Slack integration:
+
+1. Create a Slack app at https://api.slack.com/apps
+2. Add the following Bot Token Scopes:
+   - `channels:history`
+   - `channels:read`
+   - `chat:write`
+   - `users:read`
+3. Install the app to your workspace
+4. Copy the credentials to `.env`
+
 ## Running the Application
 
-### Backend (FastAPI)
+### Backend
+
 ```bash
 cd Backend
-uvicorn main:app --reload --port 8000
+python main.py
 ```
 
-### Frontend (Next.js)
+The API runs at `http://localhost:8000`
+
+### Frontend
+
 ```bash
 cd Frontend
 npm run dev
 ```
 
-The app will be available at `http://localhost:3000`
+The app runs at `http://localhost:3000`
 
 ## API Endpoints
 
-| Endpoint | Description |
-|----------|-------------|
-| `GET /api/health` | Health check |
-| `POST /api/documents/upload` | Upload document |
-| `GET /api/documents` | List documents |
-| `POST /api/ai/query` | Query AI |
-| `POST /api/ingest/sync` | Sync Slack messages |
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/health` | GET | Health check |
+| `/api/documents` | GET | List documents |
+| `/api/documents/upload` | POST | Upload document |
+| `/api/documents/{id}` | DELETE | Delete document |
+| `/api/ai/query` | POST | Query AI |
+| `/api/ingest/sync` | POST | Sync Slack messages |
+
+## Testing
+
+```bash
+# Health check
+curl http://localhost:8000/api/health
+
+# Upload document
+curl -X POST http://localhost:8000/api/documents/upload \
+  -F "file=@sample.pdf"
+
+# Query AI
+curl -X POST http://localhost:8000/api/ai/query \
+  -H "Content-Type: application/json" \
+  -d '{"session_id": "test", "question": "What documents do I have?"}'
+```
 
 ## Project Structure
 
 ```
-Backend/
-├── main.py              # FastAPI app entry
-├── src/
-│   ├── api/             # API routes
-│   ├── core/            # Config & settings
-│   ├── db/              # Supabase client
-│   ├── services/        # Business logic
-│   └── celery_app.py    # Celery config
-├── supabase/            # DB setup scripts
-└── requirements.txt
-
-Frontend/
-├── app/                 # Next.js App Router
-├── components/          # React components
-├── lib/                 # Utilities
-└── package.json
+Quests-AI-copilot/
+├── Backend/
+│   ├── main.py              # FastAPI app entry
+│   ├── src/
+│   │   ├── api/             # API routes
+│   │   ├── core/            # Config & settings
+│   │   ├── db/              # Supabase client
+│   │   └── services/        # Business logic
+│   ├── supabase/            # DB setup scripts
+│   └── requirements.txt
+│
+├── Frontend/
+│   ├── app/                 # Next.js App Router
+│   ├── components/          # React components
+│   └── lib/                 # Utilities
+│
+└── README.md
 ```
 
 ## Features
 
 - Document upload (PDF, MD, TXT)
 - OCR for scanned PDFs
-- RAG-based AI
+- RAG-based AI chat
 - Slack message sync
 - Vector search with Qdrant

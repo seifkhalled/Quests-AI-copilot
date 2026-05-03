@@ -1,13 +1,26 @@
 import logging
 from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+import json
+import asyncio
+
 from src.agent.graph import agent_graph
 from src.services.message_service import (
     save_user_message,
     mark_conversation_ended,
     get_all_messages,
+    get_context_window,
+    save_assistant_message,
 )
+from src.services.vector import get_vector_service
+from src.services.embedding import get_embedding_service
+from src.agent.tools import build_context_string
+from src.agent.prompts import QUEST_SEARCH_PROMPT
+from src.agent.guards import check_safety
+from src.core.config import settings
+from langchain_groq import ChatGroq
 from src.db.supabase_client import get_supabase
 
 router = APIRouter(prefix="/chat", tags=["chat"])
@@ -134,6 +147,128 @@ async def chat(request: ChatRequest):
         confidence=final_state.get("confidence"),
         intent=final_state.get("intent"),
         conversation_id=request.conversation_id,
+    )
+
+
+class StreamChatRequest(BaseModel):
+    conversation_id: str
+    user_id: str
+    message: str
+
+
+async def stream_generate(
+    conversation_id: str,
+    user_id: str,
+    message: str,
+):
+    """Streaming LLM generation with SSE."""
+    embedding_service = get_embedding_service()
+    vector_service = get_vector_service()
+    llm = ChatGroq(
+        model="llama-3.3-70b-versatile",
+        temperature=0.2,
+        api_key=settings.GROQ_AGENT_API_KEY,
+    )
+
+    yield {"type": "start", "conversation_id": conversation_id}
+
+    try:
+        raw_messages = get_context_window(conversation_id)
+        history = []
+        for m in raw_messages:
+            if m["role"] == "user":
+                history.append({"role": "user", "content": m["content"]})
+            else:
+                history.append({"role": "assistant", "content": m["content"]})
+
+        yield {"type": "status", "content": "Searching knowledge base..."}
+        query_embedding = embedding_service.embed_text(message)
+        results = await vector_service.search(
+            query_embedding=query_embedding,
+            limit=5,
+        )
+
+        if not results:
+            yield {"type": "content", "content": "I don't have any relevant information to answer your question."}
+            return
+
+        context = build_context_string(results)
+        history_str = "\n".join(
+            f"{h['role'].capitalize()}: {h['content']}" for h in history
+        ) or "No previous messages"
+
+        prompt = QUEST_SEARCH_PROMPT.format(
+            context=context,
+            candidate_profile="No profile data yet",
+            history=history_str,
+            user_message=message,
+        )
+
+        yield {"type": "status", "content": "Generating response..."}
+
+        full_content = ""
+        async for chunk in llm.astream(prompt):
+            content = chunk.content
+            if content:
+                full_content += content
+                yield {"type": "content", "content": content}
+
+        save_user_message(conversation_id=conversation_id, content=message)
+        save_assistant_message(
+            conversation_id=conversation_id,
+            content=full_content,
+            sources=[{"document_id": r["document_id"], "chunk_index": r["chunk_index"]} for r in results],
+            confidence=sum(r["score"] for r in results) / len(results) * 2 if results else 0.0,
+        )
+
+        yield {"type": "sources", "sources": results}
+
+    except Exception as e:
+        logger.error(f"Stream chat failed: {e}")
+        yield {"type": "error", "error": str(e)}
+
+
+@router.post("/stream")
+async def stream_chat(request: StreamChatRequest):
+    """Streaming chat endpoint using SSE."""
+    if not request.message or not request.message.strip():
+        raise HTTPException(status_code=400, detail="Message cannot be empty")
+
+    sb = get_supabase()
+    conv_result = sb.table("conversations") \
+        .select("id, user_id, status") \
+        .eq("id", request.conversation_id) \
+        .single() \
+        .execute()
+
+    if not conv_result.data:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    conv = conv_result.data
+    if conv["user_id"] != request.user_id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    if conv.get("status") == "ended":
+        raise HTTPException(status_code=400, detail="Conversation ended")
+
+    async def event_generator():
+        try:
+            async for event in stream_generate(
+                request.conversation_id,
+                request.user_id,
+                request.message,
+            ):
+                yield f"data: {json.dumps(event)}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        },
     )
 
 

@@ -29,6 +29,57 @@ export const endConversation = (conversation_id: string, user_id: string) =>
 export const sendMessage = (conversation_id: string, user_id: string, message: string) =>
   client.post('/api/chat', { conversation_id, user_id, message })
 
+export const sendMessageStream = (
+  conversation_id: string,
+  user_id: string,
+  message: string,
+  onChunk: (content: string, type: string) => void
+) => {
+  const controller = new AbortController()
+  const token = getToken()
+
+  fetch(`${BASE}/api/chat/stream`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ conversation_id, user_id, message }),
+    signal: controller.signal,
+  }).then(async res => {
+    const reader = res.body?.getReader()
+    const decoder = new TextDecoder()
+    if (!reader) return
+
+    let buffer = ''
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() || ''
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          try {
+            const data = JSON.parse(line.slice(6))
+            if (data.type === 'content') {
+              onChunk(data.content, 'content')
+            } else if (data.type === 'sources') {
+              onChunk(JSON.stringify(data.sources), 'sources')
+            } else if (data.type === 'status') {
+              onChunk(data.content, 'status')
+            } else if (data.type === 'error') {
+              onChunk(data.error, 'error')
+            }
+          } catch {}
+        }
+      }
+    }
+  }).catch(err => onChunk(err.message, 'error'))
+
+  return () => controller.abort()
+}
+
 export const getDocuments = (status?: string) =>
   client.get('/api/documents', { params: status ? { status } : {} })
 
