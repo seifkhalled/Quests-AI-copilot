@@ -160,7 +160,7 @@ def end_conversation(conversation_id: str, user_id: str):
 
 
 if not st.session_state.token:
-    st.title("🎯 Quest Copilot - Login")
+    st.title(" Quest Copilot - Login")
 
     tab1, tab2 = st.tabs(["Login", "Sign Up"])
 
@@ -201,7 +201,7 @@ if not st.session_state.token:
                         st.error(msg)
 
 else:
-    st.title(f"🎯 Quest Copilot")
+    st.title(f" Quest Copilot")
 
     with st.sidebar:
         st.header(f"Welcome, {st.session_state.user.get('email', 'User')}")

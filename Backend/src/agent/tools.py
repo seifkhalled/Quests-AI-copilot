@@ -135,6 +135,13 @@ async def extract_and_save_preferences(
             values.append(new_years)
             idx += 1
 
+        # Update summary if provided
+        new_summary = extracted.get("summary")
+        if new_summary:
+            set_clauses.append(f"summary = ${idx}")
+            values.append(new_summary)
+            idx += 1
+
         if set_clauses:
             values.append(user_id)
             query = (

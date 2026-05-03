@@ -47,7 +47,7 @@ export default function RegisterPage() {
             <button type="button"
               className={`role-card ${role === 'candidate' ? 'role-active' : ''}`}
               onClick={() => setRole('candidate')}>
-              <span className="role-icon">🎯</span>
+              <span className="role-icon"></span>
               <span className="role-name">Candidate</span>
               <span className="role-desc">Find quests that match you</span>
             </button>

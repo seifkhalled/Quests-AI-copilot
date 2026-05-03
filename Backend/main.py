@@ -9,6 +9,7 @@ from src.api.routes.conversations import router as conversations_router
 from src.core.config import settings
 from src.db import supabase as db_module
 from src.services.vector import get_vector_service
+from src.services.embedding import get_embedding_service
 
 load_dotenv()
 
@@ -41,6 +42,11 @@ async def startup_event():
     # Ensure collection exists
     vector_service = get_vector_service()
     await vector_service.create_collection()
+    
+    # Pre-load embedding model
+    print("Pre-loading embedding model...")
+    get_embedding_service().model
+    print("Embedding model ready.")
 
 
 @app.get("/api/health")

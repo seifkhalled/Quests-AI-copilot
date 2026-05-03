@@ -13,12 +13,14 @@ logger = logging.getLogger(__name__)
 
 class ConversationCreate(BaseModel):
     title: Optional[str] = None
+    scope: str = "global"
 
 
 class ConversationResponse(BaseModel):
     id: str
     user_id: str
     title: Optional[str]
+    scope: str
     created_at: str
     last_message_at: str
 
@@ -32,20 +34,24 @@ async def create_conversation(
     conversation_id = str(uuid.uuid4())
     
     title = conversation.title or f"Conversation {conversation_id[:8]}"
+    scope = conversation.scope or "global"
     
     try:
+        logger.info(f"Creating conversation for user: {current_user.id}")
         await supabase_client.execute(
             '''
-            INSERT INTO conversations (id, user_id, title, created_at, last_message_at)
-            VALUES ($1, $2, $3, now(), now())
+            INSERT INTO conversations (id, user_id, title, scope, created_at, last_message_at)
+            VALUES ($1, $2, $3, $4, now(), now())
             ''',
             conversation_id,
             current_user.id,
             title,
+            scope,
         )
+        logger.info(f"Successfully inserted conversation {conversation_id}")
         
         row = await supabase_client.fetchrow(
-            'SELECT id, user_id, title, created_at, last_message_at FROM conversations WHERE id = $1',
+            'SELECT id, user_id, title, scope, created_at, last_message_at FROM conversations WHERE id = $1',
             conversation_id,
         )
         
@@ -53,12 +59,13 @@ async def create_conversation(
             id=str(row["id"]),
             user_id=str(row["user_id"]),
             title=row["title"],
+            scope=row["scope"],
             created_at=str(row["created_at"]),
             last_message_at=str(row["last_message_at"]),
         )
     except Exception as e:
-        logger.error(f"Failed to create conversation: {e}")
-        raise HTTPException(status_code=500, detail="Failed to create conversation")
+        logger.error(f"CRITICAL: Failed to create conversation for user {current_user.id}: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to create conversation: {str(e)}")
 
 
 @router.get("", response_model=list[ConversationResponse])
@@ -69,7 +76,7 @@ async def list_conversations(
     try:
         rows = await supabase_client.fetch(
             '''
-            SELECT id, user_id, title, created_at, last_message_at
+            SELECT id, user_id, title, scope, created_at, last_message_at
             FROM conversations
             WHERE user_id = $1
             ORDER BY last_message_at DESC
@@ -82,6 +89,7 @@ async def list_conversations(
                 id=str(row["id"]),
                 user_id=str(row["user_id"]),
                 title=row["title"],
+                scope=row.get("scope", "global"),
                 created_at=str(row["created_at"]),
                 last_message_at=str(row["last_message_at"]),
             )
@@ -101,7 +109,7 @@ async def get_conversation(
     try:
         row = await supabase_client.fetchrow(
             '''
-            SELECT id, user_id, title, created_at, last_message_at
+            SELECT id, user_id, title, scope, created_at, last_message_at
             FROM conversations
             WHERE id = $1 AND user_id = $2
             ''',
@@ -116,6 +124,7 @@ async def get_conversation(
             id=str(row["id"]),
             user_id=str(row["user_id"]),
             title=row["title"],
+            scope=row.get("scope", "global"),
             created_at=str(row["created_at"]),
             last_message_at=str(row["last_message_at"]),
         )

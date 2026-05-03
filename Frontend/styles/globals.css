@@ -7,13 +7,13 @@
   --text-primary:  #e8e8f0;
   --text-secondary:#8888a8;
   --text-tertiary: #5a5a78;
-  --accent:        #6c63ff;
-  --accent-hover:  #7c73ff;
-  --accent-dim:    #6c63ff22;
+  --accent:        #f97316;
+  --accent-hover:  #fb923c;
+  --accent-dim:    #f9731622;
   --success:       #22c55e;
   --warning:       #f59e0b;
   --danger:        #ef4444;
-  --gradient:      linear-gradient(135deg, #6c63ff 0%, #a78bfa 100%);
+  --gradient:      linear-gradient(135deg, #f97316 0%, #fbbf24 100%);
   --font-display:  'DM Sans', sans-serif;
   --font-body:     'JetBrains Mono', monospace;
 }

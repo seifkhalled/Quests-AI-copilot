@@ -18,7 +18,7 @@ export const loginUser = (email: string, password: string) =>
   client.post('/api/auth/login', { email, password })
 
 export const createConversation = (user_id: string, scope = 'global') =>
-  client.post('/api/conversations', { user_id, scope })
+  client.post('/api/conversations', { scope })
 
 export const getMessages = (conversation_id: string, user_id: string) =>
   client.get(`/api/chat/${conversation_id}/messages`, { params: { user_id } })

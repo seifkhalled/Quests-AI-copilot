@@ -15,13 +15,20 @@ class EmbeddingService:
     def model(self):
         """Lazy load the model."""
         if self._model is None:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(f"Loading embedding model: {self.model_name}")
             from sentence_transformers import SentenceTransformer
             device = "cuda" if os.environ.get("CUDA_VISIBLE_DEVICES") else "cpu"
             self._model = SentenceTransformer(self.model_name, device=device)
+            logger.info("Embedding model loaded successfully")
         return self._model
 
     def embed_text(self, text: str) -> List[float]:
         """Generate embedding for single text."""
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.debug(f"Generating embedding for text (length: {len(text)})")
         embedding = self.model.encode(text, convert_to_numpy=True)
         return embedding.tolist()
 

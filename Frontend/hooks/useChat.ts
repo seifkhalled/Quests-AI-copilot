@@ -14,6 +14,7 @@ export function useChat() {
   const [error, setError] = useState('')
   const [mounted, setMounted] = useState(false)
   const streamAbortRef = useRef<(() => void) | null>(null)
+  const startedRef = useRef(false)
 
   useEffect(() => {
     setMounted(true)
@@ -23,13 +24,20 @@ export function useChat() {
   useEffect(() => { if (mounted && user) startConversation() }, [mounted, user])
 
   async function startConversation() {
-    if (!user) return
+    if (!user) { setError('Not logged in'); return }
+    if (startedRef.current) return  // prevent duplicate calls
+    startedRef.current = true
     setLoading(true)
+    setError('')
     try {
       const res = await createConversation(user.id, 'global')
       setConversation(res.data)
       setMessages([])
-    } catch { setError('Could not start conversation') }
+    } catch (e: any) {
+      const detail = e?.response?.data?.detail || e?.message || 'Could not start conversation'
+      setError(detail)
+      startedRef.current = false  // allow retry
+    }
     finally { setLoading(false) }
   }
 
@@ -72,7 +80,12 @@ export function useChat() {
               m.id === streamMessage.id ? { ...m, content: fullContent } : m
             ))
           } else if (type === 'sources') {
-            try { sources = JSON.parse(chunk) } catch {}
+            try {
+              sources = JSON.parse(chunk)
+              setMessages(prev => prev.map(m =>
+                m.id === streamMessage.id ? { ...m, sources } : m
+              ))
+            } catch {}
           } else if (type === 'error') {
             setError(chunk)
           }
@@ -94,6 +107,7 @@ export function useChat() {
     if (conversation && user) {
       await endConversation(conversation.id, user.id).catch(() => {})
     }
+    startedRef.current = false  // allow a new conversation to be started
     await startConversation()
   }
 

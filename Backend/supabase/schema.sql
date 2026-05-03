@@ -72,6 +72,9 @@ CREATE TABLE conversations (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     title text,
+    scope text NOT NULL DEFAULT 'global' CHECK (scope IN ('global', 'document_scoped')),
+    scoped_document_id uuid,
+    status text NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'ended')),
     created_at timestamptz DEFAULT now(),
     last_message_at timestamptz DEFAULT now()
 );

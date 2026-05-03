@@ -16,8 +16,9 @@ from src.services.message_service import (
 )
 from src.services.vector import get_vector_service
 from src.services.embedding import get_embedding_service
-from src.agent.tools import build_context_string
-from src.agent.prompts import QUEST_SEARCH_PROMPT
+from src.agent.tools import build_context_string, extract_and_save_preferences
+from src.agent.prompts import QUEST_SEARCH_PROMPT, STREAMING_CHAT_PROMPT, PREFERENCE_EXTRACTION_PROMPT
+from src.agent.nodes import _llm_structured, _parse_json
 from src.agent.guards import check_safety
 from src.core.config import settings
 from langchain_groq import ChatGroq
@@ -184,7 +185,7 @@ async def stream_generate(
         yield {"type": "status", "content": "Searching knowledge base..."}
         query_embedding = embedding_service.embed_text(message)
         results = await vector_service.search(
-            query_embedding=query_embedding,
+            query_vector=query_embedding,
             limit=5,
         )
 
@@ -192,12 +193,21 @@ async def stream_generate(
             yield {"type": "content", "content": "I don't have any relevant information to answer your question."}
             return
 
-        context = build_context_string(results)
+        formatted_chunks = [
+            {
+                "content": r.get("content", ""),
+                "document_title": r.get("metadata", {}).get("document_title", "Unknown Document"),
+                "chunk_index": r.get("metadata", {}).get("chunk_index", 0),
+                "score": r.get("score", 0.0),
+            }
+            for r in results
+        ]
+        context = build_context_string(formatted_chunks)
         history_str = "\n".join(
             f"{h['role'].capitalize()}: {h['content']}" for h in history
         ) or "No previous messages"
 
-        prompt = QUEST_SEARCH_PROMPT.format(
+        prompt = STREAMING_CHAT_PROMPT.format(
             context=context,
             candidate_profile="No profile data yet",
             history=history_str,
@@ -213,15 +223,39 @@ async def stream_generate(
                 full_content += content
                 yield {"type": "content", "content": content}
 
+        formatted_sources = [
+            {
+                "document_title": r.get("metadata", {}).get("document_title", "Unknown Document"),
+                "chunk_index": r.get("metadata", {}).get("chunk_index", 0),
+                "snippet": r.get("content", ""),
+                "score": r.get("score", 0.0),
+            }
+            for r in results
+        ]
+
         save_user_message(conversation_id=conversation_id, content=message)
         save_assistant_message(
             conversation_id=conversation_id,
             content=full_content,
-            sources=[{"document_id": r["document_id"], "chunk_index": r["chunk_index"]} for r in results],
+            sources=formatted_sources,
             confidence=sum(r["score"] for r in results) / len(results) * 2 if results else 0.0,
         )
 
-        yield {"type": "sources", "sources": results}
+        yield {"type": "sources", "sources": formatted_sources}
+
+        # ── Background Preference Extraction ──────────────────────
+        # This keeps the profile updated as the user shares info
+        async def run_extraction():
+            try:
+                extract_prompt = PREFERENCE_EXTRACTION_PROMPT.format(user_message=message)
+                res = await _llm_structured.ainvoke(extract_prompt)
+                extracted_data = _parse_json(res.content)
+                if extracted_data:
+                    await extract_and_save_preferences(user_id, extracted_data)
+            except Exception as e:
+                logger.error(f"Background preference extraction failed: {e}")
+
+        asyncio.create_task(run_extraction())
 
     except Exception as e:
         logger.error(f"Stream chat failed: {e}")

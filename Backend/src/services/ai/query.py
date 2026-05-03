@@ -76,7 +76,7 @@ Answer:"""
         
         # Search vector DB
         results = await self.vector_service.search(
-            query_embedding=query_embedding,
+            query_vector=query_embedding,
             limit=top_k,
             document_id=document_id,
         )
