@@ -1,0 +1,61 @@
+TABLE: candidate_profiles
+  - id: uuid (nullable: NO, default: gen_random_uuid())
+  - user_id: uuid (nullable: NO, default: None)
+  - full_name: text (nullable: YES, default: None)
+  - phone: text (nullable: YES, default: None)
+  - summary: text (nullable: YES, default: None)
+  - tech_stack: ARRAY (nullable: YES, default: '{}'::text[])
+  - preferred_roles: ARRAY (nullable: YES, default: '{}'::text[])
+  - experience_years: integer (nullable: YES, default: None)
+  - updated_at: timestamp with time zone (nullable: YES, default: now())
+
+TABLE: chunks
+  - id: uuid (nullable: NO, default: gen_random_uuid())
+  - document_id: uuid (nullable: NO, default: None)
+  - chunk_index: integer (nullable: NO, default: None)
+  - content: text (nullable: NO, default: None)
+  - token_count: integer (nullable: YES, default: None)
+  - qdrant_point_id: text (nullable: YES, default: None)
+  - created_at: timestamp with time zone (nullable: YES, default: now())
+
+TABLE: conversations
+  - id: uuid (nullable: NO, default: gen_random_uuid())
+  - user_id: uuid (nullable: NO, default: None)
+  - title: text (nullable: YES, default: None)
+  - created_at: timestamp with time zone (nullable: YES, default: now())
+  - last_message_at: timestamp with time zone (nullable: YES, default: now())
+  - scope: text (nullable: YES, default: 'global'::text)
+  - scoped_document_id: uuid (nullable: YES, default: None)
+  - status: text (nullable: YES, default: 'active'::text)
+
+TABLE: documents
+  - id: uuid (nullable: NO, default: gen_random_uuid())
+  - uploaded_by: uuid (nullable: YES, default: None)
+  - title: text (nullable: NO, default: None)
+  - source_type: text (nullable: NO, default: None)
+  - raw_text: text (nullable: YES, default: None)
+  - metadata: jsonb (nullable: YES, default: '{}'::jsonb)
+  - status: text (nullable: NO, default: 'pending'::text)
+  - created_at: timestamp with time zone (nullable: YES, default: now())
+  - updated_at: timestamp with time zone (nullable: YES, default: now())
+
+TABLE: messages
+  - id: uuid (nullable: NO, default: gen_random_uuid())
+  - conversation_id: uuid (nullable: NO, default: None)
+  - role: text (nullable: NO, default: None)
+  - content: text (nullable: NO, default: None)
+  - sources: jsonb (nullable: YES, default: '[]'::jsonb)
+  - confidence: double precision (nullable: YES, default: None)
+  - reasoning: text (nullable: YES, default: None)
+  - created_at: timestamp with time zone (nullable: YES, default: now())
+
+TABLE: users
+  - id: uuid (nullable: NO, default: gen_random_uuid())
+  - email: text (nullable: NO, default: None)
+  - password_hash: text (nullable: NO, default: None)
+  - full_name: text (nullable: YES, default: None)
+  - role: text (nullable: NO, default: None)
+  - is_active: boolean (nullable: YES, default: true)
+  - created_at: timestamp with time zone (nullable: YES, default: now())
+  - updated_at: timestamp with time zone (nullable: YES, default: now())
+

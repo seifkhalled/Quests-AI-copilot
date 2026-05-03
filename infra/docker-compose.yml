@@ -1,0 +1,38 @@
+version: "3.8"
+
+services:
+  backend:
+    build:
+      context: ../Backend
+      dockerfile: Dockerfile
+    container_name: quests-backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - ../Backend/.env
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - PYTHONUNBUFFERED=1
+
+  slack-listener:
+    build:
+      context: ../Backend
+      dockerfile: Dockerfile
+    container_name: quests-slack-listener
+    command: python src/slack_listener.py
+    env_file:
+      - ../Backend/.env
+    environment:
+      - PYTHONUNBUFFERED=1
+
+  frontend:
+    build:
+      context: ../Frontend
+      dockerfile: Dockerfile
+    container_name: quests-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    depends_on:
+      - backend
