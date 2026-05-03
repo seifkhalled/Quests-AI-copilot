@@ -10,6 +10,8 @@ export default function RegisterPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [role, setRole] = useState<'candidate' | 'poster'>('candidate')
+  const [fullName, setFullName] = useState('')
+  const [phone, setPhone] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -18,7 +20,13 @@ export default function RegisterPage() {
     setLoading(true)
     setError('')
     try {
-      const res = await registerUser(email, password, role)
+      const res = await registerUser(
+        email, 
+        password, 
+        role, 
+        role === 'candidate' ? fullName : undefined, 
+        role === 'candidate' ? phone : undefined
+      )
       const { access_token, user } = res.data
       saveAuth(access_token, user)
       router.push(user.role === 'candidate' ? '/chat' : '/dashboard')
@@ -75,6 +83,24 @@ export default function RegisterPage() {
                 value={password} onChange={e => setPassword(e.target.value)}
                 minLength={8} required />
             </div>
+            
+            {role === 'candidate' && (
+              <>
+                <div className="field">
+                  <label className="field-label">Full Name</label>
+                  <input type="text" className="field-input"
+                    placeholder="John Doe"
+                    value={fullName} onChange={e => setFullName(e.target.value)} required />
+                </div>
+                <div className="field">
+                  <label className="field-label">Phone Number</label>
+                  <input type="tel" className="field-input"
+                    placeholder="+1 234 567 8900"
+                    value={phone} onChange={e => setPhone(e.target.value)} required />
+                </div>
+              </>
+            )}
+
             <button type="submit" className="btn-primary" disabled={loading}>
               {loading ? 'Creating account...' : `Join as ${role}`}
             </button>

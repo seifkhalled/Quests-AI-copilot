@@ -23,6 +23,7 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str
     full_name: Optional[str] = None
+    phone: Optional[str] = None
     role: Optional[str] = "candidate"
 
     def __init__(self, **data):
@@ -126,10 +127,12 @@ async def register_user(user: UserCreate):
     if user.role == "candidate":
         await supabase.supabase_client.execute(
             '''
-            INSERT INTO "candidate_profiles" (user_id)
-            VALUES ($1)
+            INSERT INTO "candidate_profiles" (user_id, full_name, phone)
+            VALUES ($1, $2, $3)
             ''',
             user_id,
+            user.full_name,
+            user.phone,
         )
     
     created = await supabase.supabase_client.fetchrow(

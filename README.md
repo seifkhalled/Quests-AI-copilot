@@ -89,7 +89,9 @@ cd Backend
 python main.py
 ```
 
-The API runs at `http://localhost:8000`
+The API runs at `http://localhost:8000` (or `http://localhost:8002` with Docker)
+
+**Interactive API Documentation:** http://localhost:8002/docs
 
 ### Frontend
 
@@ -101,6 +103,8 @@ npm run dev
 The app runs at `http://localhost:3000`
 
 ## API Endpoints
+
+> **Tip:** For interactive API documentation, visit http://localhost:8002/docs
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
@@ -115,14 +119,14 @@ The app runs at `http://localhost:3000`
 
 ```bash
 # Health check
-curl http://localhost:8000/api/health
+curl http://localhost:8002/api/health
 
 # Upload document
-curl -X POST http://localhost:8000/api/documents/upload \
+curl -X POST http://localhost:8002/api/documents/upload \
   -F "file=@sample.pdf"
 
 # Query AI
-curl -X POST http://localhost:8000/api/ai/query \
+curl -X POST http://localhost:8002/api/ai/query \
   -H "Content-Type: application/json" \
   -d '{"session_id": "test", "question": "What documents do I have?"}'
 ```

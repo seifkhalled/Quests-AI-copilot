@@ -11,8 +11,8 @@ client.interceptors.request.use(config => {
   return config
 })
 
-export const registerUser = (email: string, password: string, role: string) =>
-  client.post('/api/auth/register', { email, password, role })
+export const registerUser = (email: string, password: string, role: string, full_name?: string, phone?: string) =>
+  client.post('/api/auth/register', { email, password, role, full_name, phone })
 
 export const loginUser = (email: string, password: string) =>
   client.post('/api/auth/login', { email, password })
